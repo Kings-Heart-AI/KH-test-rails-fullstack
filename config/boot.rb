@@ -49,15 +49,31 @@ YAML.singleton_class.send(:alias_method, :load, :unsafe_load) if YAML.respond_to
 # 1.3.6'` (a RubyGems version guard, independent of Bundler/the
 # Gemfile), which rejects the sqlite3 1.4.4 this app now uses -- 1.3.x
 # doesn't build on modern Ruby (its native ext calls the removed
-# `rb_check_safe_obj`). Bundler already resolved/activated the exact
-# locked sqlite3 version, so this legacy self-check is redundant; make
-# it a no-op for sqlite3 only.
+# `rb_check_safe_obj`). Likewise, activerecord's postgresql_adapter.rb
+# hardcodes `gem 'pg', '~> 0.15'`, rejecting the pg 1.5.6 this app now
+# uses (0.x doesn't build against modern libpq). Bundler already
+# resolved/activated the exact locked version of each, so this legacy
+# self-check is redundant; make it a no-op for these two gems only.
 module Kernel
   alias_method :__pre_sqlite3_shim_gem, :gem
   def gem(name, *requirements)
-    return true if name == 'sqlite3'
+    return true if %w[sqlite3 pg].include?(name)
     __pre_sqlite3_shim_gem(name, *requirements)
   end
+end
+
+# activerecord 4.2.2's postgresql_adapter.rb calls `PGconn.connect`, the
+# name the pg gem's connection class used before 1.0. pg 1.5.6 (needed
+# for this Ruby/deploy target, see production Gemfile group) no longer
+# defines that backwards-compat alias. Restore it. The pg gem is only
+# bundled in the :production group, so this is a no-op elsewhere.
+# Same deal for `PGresult`, used elsewhere in the same adapter file to
+# read error fields off a failed query.
+begin
+  require 'pg'
+  PGconn   = PG::Connection unless defined?(PGconn)
+  PGresult = PG::Result     unless defined?(PGresult)
+rescue LoadError
 end
 
 # activesupport 4.2.2 (and sdoc, doc-group only) pin `json` to the 1.x
