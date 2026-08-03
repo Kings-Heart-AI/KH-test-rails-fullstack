@@ -1,14 +1,14 @@
 source 'https://rubygems.org'
 
 gem 'rails',                   '4.2.2'
-gem 'bcrypt',                  '3.1.7'
+gem 'bcrypt',                  '3.1.22'
 gem 'faker',                   '1.4.2'
 gem 'carrierwave',             '0.10.0'
 gem 'mini_magick',             '3.8.0'
 gem 'fog',                     '1.36.0'
-gem 'will_paginate',           '3.0.7'
+gem 'will_paginate',           '3.3.1'
 gem 'bootstrap-will_paginate', '0.0.10'
-gem 'bootstrap-sass',          '3.2.0.0'
+gem 'bootstrap-sass',          '3.2.0.4'
 gem 'sass-rails',              '5.0.2'
 gem 'uglifier',                '2.5.3'
 gem 'coffee-rails',            '4.1.0'
@@ -18,9 +18,8 @@ gem 'jbuilder',                '2.2.3'
 gem 'sdoc',                    '0.4.0', group: :doc
 
 group :development, :test do
-  gem 'sqlite3',     '1.3.9'
-  gem 'byebug',      '3.4.0'
-  gem 'web-console', '2.0.0.beta3'
+  gem 'sqlite3',     '1.4.4'
+  gem 'byebug',      '9.1.0'
   gem 'spring',      '1.1.3'
 end
 
