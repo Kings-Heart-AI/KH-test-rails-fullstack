@@ -40,10 +40,45 @@ ORIGINAL_NUMERIC_TO_S = {
 # Psych 4 (default on Ruby >= 3.1) made YAML.load behave like the old
 # safe_load, which rejects the `<<: *default` merge-key alias used in
 # config/database.yml ("Unknown alias: default"). Rails 4.2.2's
-# `database_configuration` calls plain `YAML.load`, so restore the old,
-# alias-permissive behavior.
-require 'yaml'
-YAML.singleton_class.send(:alias_method, :load, :unsafe_load) if YAML.respond_to?(:unsafe_load)
+# `database_configuration` calls plain `YAML.load` on that file's
+# contents. Fix only that one call site (via `YAML.unsafe_load`)
+# instead of aliasing `YAML.load` itself process-wide, so every other
+# YAML.load call in the app and its gems keeps Psych 4's safer, alias-
+# rejecting default.
+#
+# `database_configuration` runs synchronously the moment `active_record
+# /base` loads (via its `ActiveSupport.run_load_hooks(:active_record)`
+# call), which happens partway through `require 'rails/all'` in
+# config/application.rb -- before this app's own code gets a chance to
+# patch anything post-load. So pre-require just 'rails' (the first line
+# of rails/all.rb; requiring it again there is a no-op) here, early
+# enough to patch Rails::Application::Configuration#database_configuration
+# before active_record's railtie ever calls it.
+require 'rails'
+Rails::Application::Configuration.class_eval do
+  def database_configuration
+    path = paths["config/database"].existent.first
+    yaml = Pathname.new(path) if path
+
+    config = if yaml && yaml.exist?
+      require "yaml"
+      require "erb"
+      YAML.unsafe_load(ERB.new(yaml.read).result) || {}
+    elsif ENV['DATABASE_URL']
+      {}
+    else
+      raise "Could not load database configuration. No such file - #{paths["config/database"].instance_variable_get(:@paths)}"
+    end
+
+    config
+  rescue Psych::SyntaxError => e
+    raise "YAML syntax error occurred while parsing #{paths["config/database"].first}. " \
+          "Please note that YAML must be consistently indented using spaces. Tabs are not allowed. " \
+          "Error: #{e.message}"
+  rescue => e
+    raise e, "Cannot load `Rails.application.database_configuration`:\n#{e.message}", e.backtrace
+  end
+end
 
 # activerecord 4.2.2's sqlite3_adapter.rb hardcodes `gem 'sqlite3', '~>
 # 1.3.6'` (a RubyGems version guard, independent of Bundler/the
